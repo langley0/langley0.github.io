@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paragraph-Level Translation Comparison</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #output {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-top: 20px;
+            background: #f9f9f9;
+        }
+        .error-paragraph {
+            background-color: #ffcccc;
+            padding: 5px;
+            margin: 5px 0;
+        }
+        .valid-paragraph {
+            background-color: #ccffcc;
+            padding: 5px;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Paragraph-Level Translation Comparison</h1>
+    <div>
+        <label for="originalFile">Original File:</label>
+        <input type="file" id="originalFile" accept=".docx">
+    </div>
+    <div>
+        <label for="translatedFile">Translated File:</label>
+        <input type="file" id="translatedFile" accept=".docx">
+    </div>
+    <button id="compareBtn">Compare Files</button>
+    <div id="output">
+        <p>Comparison results will appear here...</p>
+    </div>
+
+    <script src="mammoth.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
