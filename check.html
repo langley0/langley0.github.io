@@ -153,8 +153,8 @@
                     body: JSON.stringify({
                         model: 'gpt-4o',
                         messages: [
-                            { role: 'system', content: 'You are a tool for comparing text differences and highlighting translation issues.' },
-                            { role: 'user', content: `Compare these paragraphs and highlight differences or translation issues:\nOriginal:\n${p1}\n\nTranslated:\n${p2}` }
+                            { role: 'system', content: 'You are a tool for comparing text differences' },
+                            { role: 'user', content: `Compare two paragraphs and check translation issues. If there are issues, say "YES" of if not, say "NO" :\nOriginal:\n${p1}\n\nTranslated:\n${p2}` }
                         ]
                     })
                 });
