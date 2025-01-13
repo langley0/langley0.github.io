@@ -35,10 +35,10 @@
         th {
             background-color: #f4f4f4;
         }
-        .highlight {
+        .highlight td {
             background-color: #ffff99;
         }
-        .success {
+        .success td {
             background-color: #ccffcc;
         }
         .reason {
@@ -171,20 +171,29 @@ ${section2}` }
                 const result = data.choices[0].message.content.trim();
                 const row = document.createElement('tr');
 
-                const originalCell = document.createElement('td');
-                const translatedCell = document.createElement('td');
-
                 if (result.startsWith('No')) {
                     const reason = result.replace('No:', '').trim();
-                    originalCell.innerHTML = `<div class="highlight">${section1}</div>`;
-                    translatedCell.innerHTML = `<div class="highlight">${section2}<div class="reason">Reason: ${reason}</div></div>`;
+                    row.className = 'highlight';
+
+                    const originalCell = document.createElement('td');
+                    originalCell.innerHTML = `${section1}`;
+                    row.appendChild(originalCell);
+
+                    const translatedCell = document.createElement('td');
+                    translatedCell.innerHTML = `${section2}<div class="reason">Reason: ${reason}</div>`;
+                    row.appendChild(translatedCell);
                 } else {
-                    originalCell.innerHTML = `<div class="success">${section1}</div>`;
-                    translatedCell.innerHTML = `<div class="success">${section2}</div>`;
+                    row.className = 'success';
+
+                    const originalCell = document.createElement('td');
+                    originalCell.innerHTML = `${section1}`;
+                    row.appendChild(originalCell);
+
+                    const translatedCell = document.createElement('td');
+                    translatedCell.innerHTML = `${section2}`;
+                    row.appendChild(translatedCell);
                 }
 
-                row.appendChild(originalCell);
-                row.appendChild(translatedCell);
                 comparisonTable.appendChild(row);
             }
         }
