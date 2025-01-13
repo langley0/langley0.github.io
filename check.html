@@ -12,30 +12,43 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            height: 100vh;
+            overflow: hidden;
         }
         #output {
-            display: flex;
             width: 100%;
-            height: 100vh;
-        }
-        .panel {
-            flex: 1;
-            border: 1px solid #ccc;
-            padding: 20px;
-            overflow: hidden;
+            height: calc(100% - 150px);
+            overflow: auto;
             box-sizing: border-box;
         }
-        .panel.hidden {
-            visibility: hidden;
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
         }
-        .difference {
-            background-color: #ffcccc;
+        th, td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            vertical-align: top;
+            word-wrap: break-word;
+        }
+        th {
+            background-color: #f4f4f4;
         }
         .highlight {
             background-color: #ffff99;
         }
         .success {
             background-color: #ccffcc;
+        }
+        .reason {
+            color: red;
+            margin-top: 5px;
+        }
+        .section-number {
+            font-style: italic;
+            color: gray;
+            margin-bottom: 10px;
         }
         #spinner {
             display: none;
@@ -62,22 +75,28 @@
         <button type="button" id="compareBtn">Compare Files</button>
     </form>
 
-    <div id="spinner">
+    <div id="spinner" style="display: none;">
         <img src="https://i.gifer.com/ZZ5H.gif" alt="Loading...">
         <p>Processing...</p>
     </div>
 
     <div id="output">
-        <div id="originalPanel" class="panel hidden"></div>
-        <div id="translatedPanel" class="panel hidden"></div>
+        <table id="comparisonTable">
+            <thead>
+                <tr>
+                    <th>Original Section</th>
+                    <th>Translated Section</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
     <script>
         const compareBtn = document.getElementById('compareBtn');
         const spinner = document.getElementById('spinner');
-        const originalPanel = document.getElementById('originalPanel');
-        const translatedPanel = document.getElementById('translatedPanel');
+        const comparisonTable = document.getElementById('comparisonTable').querySelector('tbody');
 
         compareBtn.addEventListener('click', async () => {
             const file1 = document.getElementById('file1').files[0];
@@ -117,10 +136,7 @@
             const sections1 = splitHtmlIntoSections(html1);
             const sections2 = splitHtmlIntoSections(html2);
 
-            originalPanel.innerHTML = '';
-            translatedPanel.innerHTML = '';
-            originalPanel.classList.remove('hidden');
-            translatedPanel.classList.remove('hidden');
+            comparisonTable.innerHTML = '';
 
             for (let i = 0; i < Math.max(sections1.length, sections2.length); i++) {
                 const section1 = sections1[i] || '';
@@ -133,10 +149,16 @@
                         'Authorization': `Bearer ${apiKey}`,
                     },
                     body: JSON.stringify({
-                        model: 'gpt-4-0613',
+                        model: 'gpt-4o',
                         messages: [
                             { role: 'system', content: 'You are a tool for comparing HTML content differences.' },
-                            { role: 'user', content: `Compare the following HTML sections and identify if they are equivalent in meaning. Respond with Yes or No.\n\nOriginal Section:\n${section1}\n\nTranslated Section:\n${section2}` }
+                            { role: 'user', content: `Determine if two sections has equivalent meaning. Respond with Yes if they are equivalent or direct translation, or No and provide the Reason if not.
+
+Original Section:
+${section1}
+
+Translated Section:
+${section2}` }
                         ]
                     })
                 });
@@ -147,8 +169,23 @@
                 }
 
                 const result = data.choices[0].message.content.trim();
-                addSectionToPanel(section1, originalPanel, result === 'Yes' ? 'success' : 'highlight');
-                addSectionToPanel(section2, translatedPanel, result === 'Yes' ? 'success' : 'highlight');
+                const row = document.createElement('tr');
+
+                const originalCell = document.createElement('td');
+                const translatedCell = document.createElement('td');
+
+                if (result.startsWith('No')) {
+                    const reason = result.replace('No:', '').trim();
+                    originalCell.innerHTML = `<div class="highlight">${section1}</div>`;
+                    translatedCell.innerHTML = `<div class="highlight">${section2}<div class="reason">Reason: ${reason}</div></div>`;
+                } else {
+                    originalCell.innerHTML = `<div class="success">${section1}</div>`;
+                    translatedCell.innerHTML = `<div class="success">${section2}</div>`;
+                }
+
+                row.appendChild(originalCell);
+                row.appendChild(translatedCell);
+                comparisonTable.appendChild(row);
             }
         }
 
@@ -160,19 +197,27 @@
             container.querySelectorAll('p, table').forEach((element) => {
                 if (element.tagName === 'TABLE') {
                     sections.push(element.outerHTML); // Entire table as one section
-                } else {
-                    sections.push(element.outerHTML); // Individual paragraph
+                } else if (!isNestedInTable(element) && !containsNonTextContent(element)) {
+                    sections.push(element.outerHTML); // Individual paragraph not inside a table and without non-text content
                 }
             });
 
             return sections;
         }
 
-        function addSectionToPanel(section, panel, className) {
-            const sectionDiv = document.createElement('div');
-            sectionDiv.className = className;
-            sectionDiv.innerHTML = section;
-            panel.appendChild(sectionDiv);
+        function isNestedInTable(element) {
+            let parent = element.parentElement;
+            while (parent) {
+                if (parent.tagName === 'TABLE') {
+                    return true;
+                }
+                parent = parent.parentElement;
+            }
+            return false;
+        }
+
+        function containsNonTextContent(element) {
+            return element.querySelector('img, svg, canvas, video, audio');
         }
     </script>
 </body>
