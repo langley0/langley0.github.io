@@ -30,9 +30,6 @@
         .success {
             background-color: #ccffcc;
         }
-        .paragraph {
-            margin-bottom: 20px;
-        }
         #spinner {
             display: none;
             margin: 20px auto;
@@ -93,9 +90,9 @@
             spinner.style.display = 'block';
 
             try {
-                const [text1, text2] = await Promise.all([readDocx(file1), readDocx(file2)]);
-                displayTexts(text1, text2);
-                await compareTextsByParagraph(text1, text2, apiKey);
+                const [html1, html2] = await Promise.all([readDocx(file1), readDocx(file2)]);
+                displayHtml(html1, html2);
+                await compareHtmlContent(html1, html2, apiKey);
             } catch (error) {
                 console.error('Error comparing files:', error);
                 alert('An error occurred while processing the files.');
@@ -106,55 +103,14 @@
 
         async function readDocx(file) {
             const arrayBuffer = await file.arrayBuffer();
-            const result = await mammoth.extractRawText({
-                arrayBuffer,
-                includeDefaultStyleMap: true,
-                styleMap: [
-                    "table => p:fresh-table"
-                ]
-            });
+            const result = await mammoth.convertToHtml({ arrayBuffer });
             return result.value;
         }
 
-        function displayTexts(text1, text2) {
-            const paragraphs1 = mergeTablesIntoParagraphs(text1.split(/\n+/));
-            const paragraphs2 = mergeTablesIntoParagraphs(text2.split(/\n+/));
-
-            originalPanel.innerHTML = '<h3>Original Text</h3>';
-            translatedPanel.innerHTML = '<h3>Translated Text</h3>';
-
-            paragraphs1.forEach((p, i) => {
-                originalPanel.innerHTML += `<div class="paragraph" data-index="${i}">${p}</div>`;
-            });
-
-            paragraphs2.forEach((p, i) => {
-                translatedPanel.innerHTML += `<div class="paragraph" data-index="${i}">${p}</div>`;
-            });
-
+        function displayHtml(html1, html2) {
+            originalPanel.innerHTML = `<h3>Original Text</h3>${html1}`;
+            translatedPanel.innerHTML = `<h3>Translated Text</h3>${html2}`;
             syncScroll(originalPanel, translatedPanel);
-        }
-
-        function mergeTablesIntoParagraphs(paragraphs) {
-            const merged = [];
-            let buffer = '';
-
-            paragraphs.forEach(paragraph => {
-                if (paragraph.includes('fresh-table')) {
-                    buffer += paragraph + '\n';
-                } else {
-                    if (buffer) {
-                        merged.push(buffer.trim());
-                        buffer = '';
-                    }
-                    merged.push(paragraph);
-                }
-            });
-
-            if (buffer) {
-                merged.push(buffer.trim());
-            }
-
-            return merged;
         }
 
         function syncScroll(panel1, panel2) {
@@ -166,49 +122,34 @@
             });
         }
 
-        async function compareTextsByParagraph(text1, text2, apiKey) {
-            const paragraphs1 = mergeTablesIntoParagraphs(text1.split(/\n+/));
-            const paragraphs2 = mergeTablesIntoParagraphs(text2.split(/\n+/));
+        async function compareHtmlContent(html1, html2, apiKey) {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`,
+                },
+                body: JSON.stringify({
+                    model: 'gpt-4o',
+                    messages: [
+                        { role: 'system', content: 'You are a tool for comparing HTML content differences.' },
+                        { role: 'user', content: `Compare the following HTML content and identify if they are equivalent in meaning. Respond with Yes or No.\n\nOriginal HTML:\n${html1}\n\nTranslated HTML:\n${html2}` }
+                    ]
+                })
+            });
 
-            for (let i = 0; i < Math.max(paragraphs1.length, paragraphs2.length); i++) {
-                const p1 = paragraphs1[i] || '';
-                const p2 = paragraphs2[i] || '';
+            const data = await response.json();
+            if (data.error) {
+                throw new Error(data.error.message);
+            }
 
-                const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`,
-                    },
-                    body: JSON.stringify({
-                        model: 'gpt-4-0613',
-                        messages: [
-                            { role: 'system', content: 'You are a tool for comparing text differences.' },
-                            { role: 'user', content: `Are these paragraphs equivalent in meaning? Respond with Yes or No.\nOriginal:\n${p1}\n\nTranslated:\n${p2}` }
-                        ]
-                    })
-                });
-
-                const data = await response.json();
-                if (data.error) {
-                    throw new Error(data.error.message);
-                }
-
-                const result = data.choices[0].message.content.trim();
-                const originalPara = document.querySelector(`#originalPanel .paragraph[data-index="${i}"]`);
-                const translatedPara = document.querySelector(`#translatedPanel .paragraph[data-index="${i}"]`);
-
-                if (result === 'No') {
-                    if (originalPara) originalPara.classList.add('highlight');
-                    if (translatedPara) translatedPara.classList.add('highlight');
-                } else if (result === 'Yes') {
-                    if (originalPara) originalPara.classList.add('success');
-                    if (translatedPara) translatedPara.classList.add('success');
-                }
-
-                if (translatedPara) {
-                    translatedPara.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
+            const result = data.choices[0].message.content.trim();
+            if (result === 'No') {
+                originalPanel.classList.add('highlight');
+                translatedPanel.classList.add('highlight');
+            } else if (result === 'Yes') {
+                originalPanel.classList.add('success');
+                translatedPanel.classList.add('success');
             }
         }
     </script>
