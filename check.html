@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Paragraph-Level Translation Comparison</title>
+    <title>Word Document Comparison</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -28,26 +28,26 @@
     </style>
 </head>
 <body>
-    <h1>Paragraph-Level Translation Comparison</h1>
+    <h1>Word Document Comparison</h1>
     <div>
         <label for="apiKey">OpenAI API Key:</label>
         <input type="password" id="apiKey" placeholder="Enter your API Key securely">
     </div>
     <div>
         <label for="originalFile">Original File:</label>
-        <input type="file" id="originalFile" accept=".doc,.docx">
+        <input type="file" id="originalFile" accept=".docx">
     </div>
     <div>
         <label for="translatedFile">Translated File:</label>
-        <input type="file" id="translatedFile" accept=".doc,.docx">
+        <input type="file" id="translatedFile" accept=".docx">
     </div>
     <button id="compareBtn">Compare Files</button>
     <div id="output">
         <p>Comparison results will appear here...</p>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.21.0/docxtemplater.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.21.0/docxtemplater.min.js"></script>
     <script>
         document.getElementById('compareBtn').addEventListener('click', async function () {
             const apiKey = document.getElementById('apiKey').value;
@@ -64,19 +64,24 @@
                 return;
             }
 
-            const originalText = await extractTextFromDocx(originalFileInput);
-            const translatedText = await extractTextFromDocx(translatedFileInput);
+            try {
+                const originalText = await extractTextFromDocx(originalFileInput);
+                const translatedText = await extractTextFromDocx(translatedFileInput);
 
-            const originalParagraphs = splitIntoParagraphs(originalText);
-            const translatedParagraphs = splitIntoParagraphs(translatedText);
+                const originalParagraphs = splitIntoParagraphs(originalText);
+                const translatedParagraphs = splitIntoParagraphs(translatedText);
 
-            if (originalParagraphs.length !== translatedParagraphs.length) {
-                alert('The number of paragraphs in the original and translated files do not match.');
-                return;
+                if (originalParagraphs.length !== translatedParagraphs.length) {
+                    alert('The number of paragraphs in the original and translated files do not match.');
+                    return;
+                }
+
+                const results = await compareParagraphs(originalParagraphs, translatedParagraphs, apiKey);
+                displayComparison(results);
+            } catch (error) {
+                console.error('Error processing files:', error);
+                alert('An error occurred while processing the files.');
             }
-
-            const results = await compareParagraphs(originalParagraphs, translatedParagraphs, apiKey);
-            displayComparison(results);
         });
 
         async function extractTextFromDocx(file) {
@@ -88,8 +93,7 @@
                         const zip = new JSZip();
                         const content = await zip.loadAsync(arrayBuffer);
                         const doc = new window.docxtemplater().loadZip(content);
-                        const text = doc.getFullText();
-                        resolve(text);
+                        resolve(doc.getFullText());
                     } catch (err) {
                         reject(err);
                     }
@@ -99,7 +103,7 @@
         }
 
         function splitIntoParagraphs(text) {
-            return text.split(/\n+/).map(para => para.trim()).filter(para => para.length > 0);
+            return text.split(/\n+/).map(p => p.trim()).filter(p => p.length > 0);
         }
 
         async function compareParagraphs(originalParagraphs, translatedParagraphs, apiKey) {
@@ -140,7 +144,7 @@
             const output = document.getElementById('output');
             output.innerHTML = '';
 
-            results.forEach((result, index) => {
+            results.forEach((result) => {
                 const container = document.createElement('div');
                 container.className = result.hasIssues ? 'error-paragraph' : 'valid-paragraph';
 
