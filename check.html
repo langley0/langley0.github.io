@@ -28,7 +28,15 @@
             background-color: #ffff99;
         }
         .paragraph {
-            margin-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        #spinner {
+            display: none;
+            margin: 20px auto;
+            text-align: center;
+        }
+        #spinner img {
+            width: 50px;
         }
     </style>
 </head>
@@ -47,6 +55,11 @@
         <button type="button" id="compareBtn">Compare Files</button>
     </form>
 
+    <div id="spinner">
+        <img src="https://i.gifer.com/ZZ5H.gif" alt="Loading...">
+        <p>Processing...</p>
+    </div>
+
     <div id="output">
         <div id="originalPanel" class="panel"><h3>Original Text</h3></div>
         <div id="translatedPanel" class="panel"><h3>Translated Text</h3></div>
@@ -55,7 +68,12 @@
     <script src="pizzip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.29.0/docxtemplater.min.js"></script>
     <script>
-        document.getElementById('compareBtn').addEventListener('click', async () => {
+        const compareBtn = document.getElementById('compareBtn');
+        const spinner = document.getElementById('spinner');
+        const originalPanel = document.getElementById('originalPanel');
+        const translatedPanel = document.getElementById('translatedPanel');
+
+        compareBtn.addEventListener('click', async () => {
             const file1 = document.getElementById('file1').files[0];
             const file2 = document.getElementById('file2').files[0];
             const apiKey = document.getElementById('apiKey').value.trim();
@@ -70,6 +88,8 @@
                 return;
             }
 
+            spinner.style.display = 'block';
+
             try {
                 const [text1, text2] = await Promise.all([readDocx(file1), readDocx(file2)]);
                 displayTexts(text1, text2);
@@ -77,6 +97,8 @@
             } catch (error) {
                 console.error('Error comparing files:', error);
                 alert('An error occurred while processing the files.');
+            } finally {
+                spinner.style.display = 'none';
             }
         });
 
@@ -88,9 +110,6 @@
         }
 
         function displayTexts(text1, text2) {
-            const originalPanel = document.getElementById('originalPanel');
-            const translatedPanel = document.getElementById('translatedPanel');
-
             const paragraphs1 = text1.split(/\n+/);
             const paragraphs2 = text2.split(/\n+/);
 
@@ -103,6 +122,17 @@
 
             paragraphs2.forEach((p, i) => {
                 translatedPanel.innerHTML += `<div class="paragraph" data-index="${i}">${p}</div>`;
+            });
+
+            syncScroll(originalPanel, translatedPanel);
+        }
+
+        function syncScroll(panel1, panel2) {
+            panel1.addEventListener('scroll', () => {
+                panel2.scrollTop = panel1.scrollTop;
+            });
+            panel2.addEventListener('scroll', () => {
+                panel1.scrollTop = panel2.scrollTop;
             });
         }
 
