@@ -7,16 +7,26 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 20px;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
         #output {
             display: flex;
-            gap: 20px;
-            margin-top: 20px;
+            width: 100%;
+            height: 100vh;
         }
         .panel {
             flex: 1;
-            padding: 10px;
+            border: 1px solid #ccc;
+            padding: 20px;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+        .panel.hidden {
+            visibility: hidden;
         }
         .difference {
             background-color: #ffcccc;
@@ -58,8 +68,8 @@
     </div>
 
     <div id="output">
-        <div id="originalPanel" class="panel"></div>
-        <div id="translatedPanel" class="panel"></div>
+        <div id="originalPanel" class="panel hidden"></div>
+        <div id="translatedPanel" class="panel hidden"></div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
@@ -88,7 +98,6 @@
 
             try {
                 const [html1, html2] = await Promise.all([readDocx(file1), readDocx(file2)]);
-                displayHtml(html1, html2);
                 await compareHtmlContentBySections(html1, html2, apiKey);
             } catch (error) {
                 console.error('Error comparing files:', error);
@@ -104,14 +113,14 @@
             return result.value;
         }
 
-        function displayHtml(html1, html2) {
-            originalPanel.innerHTML = `<h3>Original Text</h3>${html1}`;
-            translatedPanel.innerHTML = `<h3>Translated Text</h3>${html2}`;
-        }
-
         async function compareHtmlContentBySections(html1, html2, apiKey) {
             const sections1 = splitHtmlIntoSections(html1);
             const sections2 = splitHtmlIntoSections(html2);
+
+            originalPanel.innerHTML = '';
+            translatedPanel.innerHTML = '';
+            originalPanel.classList.remove('hidden');
+            translatedPanel.classList.remove('hidden');
 
             for (let i = 0; i < Math.max(sections1.length, sections2.length); i++) {
                 const section1 = sections1[i] || '';
@@ -138,11 +147,8 @@
                 }
 
                 const result = data.choices[0].message.content.trim();
-                if (result === 'No') {
-                    markSectionDifference(section1, section2, 'highlight');
-                } else if (result === 'Yes') {
-                    markSectionDifference(section1, section2, 'success');
-                }
+                addSectionToPanel(section1, originalPanel, result === 'Yes' ? 'success' : 'highlight');
+                addSectionToPanel(section2, translatedPanel, result === 'Yes' ? 'success' : 'highlight');
             }
         }
 
@@ -152,23 +158,21 @@
 
             const sections = [];
             container.querySelectorAll('p, table').forEach((element) => {
-                sections.push(element.outerHTML);
+                if (element.tagName === 'TABLE') {
+                    sections.push(element.outerHTML); // Entire table as one section
+                } else {
+                    sections.push(element.outerHTML); // Individual paragraph
+                }
             });
 
             return sections;
         }
 
-        function markSectionDifference(section1, section2, className) {
-            const originalSection = document.createElement('div');
-            originalSection.className = className;
-            originalSection.innerHTML = section1;
-
-            const translatedSection = document.createElement('div');
-            translatedSection.className = className;
-            translatedSection.innerHTML = section2;
-
-            originalPanel.appendChild(originalSection);
-            translatedPanel.appendChild(translatedSection);
+        function addSectionToPanel(section, panel, className) {
+            const sectionDiv = document.createElement('div');
+            sectionDiv.className = className;
+            sectionDiv.innerHTML = section;
+            panel.appendChild(sectionDiv);
         }
     </script>
 </body>
