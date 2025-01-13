@@ -10,14 +10,25 @@
             margin: 20px;
         }
         #output {
+            display: flex;
+            gap: 20px;
             margin-top: 20px;
-            white-space: pre-wrap;
+        }
+        .panel {
+            flex: 1;
+            border: 1px solid #ccc;
+            padding: 10px;
+            overflow-y: auto;
+            height: 400px;
         }
         .difference {
             background-color: #ffcccc;
         }
         .highlight {
             background-color: #ffff99;
+        }
+        .paragraph {
+            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -36,7 +47,10 @@
         <button type="button" id="compareBtn">Compare Files</button>
     </form>
 
-    <div id="output"></div>
+    <div id="output">
+        <div id="originalPanel" class="panel"><h3>Original Text</h3></div>
+        <div id="translatedPanel" class="panel"><h3>Translated Text</h3></div>
+    </div>
 
     <script src="pizzip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.29.0/docxtemplater.min.js"></script>
@@ -58,8 +72,8 @@
 
             try {
                 const [text1, text2] = await Promise.all([readDocx(file1), readDocx(file2)]);
-                const differences = await compareTextsByParagraph(text1, text2, apiKey);
-                displayResult(differences);
+                displayTexts(text1, text2);
+                await compareTextsByParagraph(text1, text2, apiKey);
             } catch (error) {
                 console.error('Error comparing files:', error);
                 alert('An error occurred while processing the files.');
@@ -73,11 +87,28 @@
             return doc.getFullText();
         }
 
-        async function compareTextsByParagraph(text1, text2, apiKey) {
+        function displayTexts(text1, text2) {
+            const originalPanel = document.getElementById('originalPanel');
+            const translatedPanel = document.getElementById('translatedPanel');
+
             const paragraphs1 = text1.split(/\n+/);
             const paragraphs2 = text2.split(/\n+/);
 
-            let differences = '';
+            originalPanel.innerHTML = '<h3>Original Text</h3>';
+            translatedPanel.innerHTML = '<h3>Translated Text</h3>';
+
+            paragraphs1.forEach((p, i) => {
+                originalPanel.innerHTML += `<div class="paragraph" data-index="${i}">${p}</div>`;
+            });
+
+            paragraphs2.forEach((p, i) => {
+                translatedPanel.innerHTML += `<div class="paragraph" data-index="${i}">${p}</div>`;
+            });
+        }
+
+        async function compareTextsByParagraph(text1, text2, apiKey) {
+            const paragraphs1 = text1.split(/\n+/);
+            const paragraphs2 = text2.split(/\n+/);
 
             for (let i = 0; i < Math.max(paragraphs1.length, paragraphs2.length); i++) {
                 const p1 = paragraphs1[i] || '';
@@ -104,19 +135,14 @@
                 }
 
                 const result = data.choices[0].message.content;
+                const originalPara = document.querySelector(`#originalPanel .paragraph[data-index="${i}"]`);
+                const translatedPara = document.querySelector(`#translatedPanel .paragraph[data-index="${i}"]`);
+
                 if (result.includes('**')) {
-                    differences += `<p class="highlight">Paragraph ${i + 1}: ${result}</p>`;
-                } else {
-                    differences += `<p>Paragraph ${i + 1}: ${result}</p>`;
+                    if (originalPara) originalPara.classList.add('highlight');
+                    if (translatedPara) translatedPara.classList.add('highlight');
                 }
             }
-
-            return differences;
-        }
-
-        function displayResult(differences) {
-            const outputDiv = document.getElementById('output');
-            outputDiv.innerHTML = differences.replace(/\*\*(.*?)\*\*/g, '<span class="difference">$1</span>');
         }
     </script>
 </body>
