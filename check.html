@@ -3,166 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Word Document Comparison</title>
+    <title>Word File Comparison</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
         }
         #output {
-            border: 1px solid #ccc;
-            padding: 10px;
             margin-top: 20px;
-            background: #f9f9f9;
+            white-space: pre-wrap;
         }
-        .error-paragraph {
+        .difference {
             background-color: #ffcccc;
-            padding: 5px;
-            margin: 5px 0;
-        }
-        .valid-paragraph {
-            background-color: #ccffcc;
-            padding: 5px;
-            margin: 5px 0;
         }
     </style>
 </head>
 <body>
-    <h1>Word Document Comparison</h1>
-    <div>
-        <label for="apiKey">OpenAI API Key:</label>
-        <input type="password" id="apiKey" placeholder="Enter your API Key securely">
-    </div>
-    <div>
-        <label for="originalFile">Original File:</label>
-        <input type="file" id="originalFile" accept=".docx">
-    </div>
-    <div>
-        <label for="translatedFile">Translated File:</label>
-        <input type="file" id="translatedFile" accept=".docx">
-    </div>
-    <button id="compareBtn">Compare Files</button>
-    <div id="output">
-        <p>Comparison results will appear here...</p>
-    </div>
+    <h1>Compare Word Files</h1>
+    <form id="fileForm">
+        <label for="file1">Original Word File:</label>
+        <input type="file" id="file1" accept=".docx"><br><br>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.21.0/docxtemplater.min.js"></script>
+        <label for="file2">Translated Word File:</label>
+        <input type="file" id="file2" accept=".docx"><br><br>
+
+        <button type="button" id="compareBtn">Compare Files</button>
+    </form>
+
+    <div id="output"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pizzip/3.0.0/pizzip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.29.0/docxtemplater.min.js"></script>
     <script>
-        document.getElementById('compareBtn').addEventListener('click', async function () {
-            const apiKey = document.getElementById('apiKey').value;
-            const originalFileInput = document.getElementById('originalFile').files[0];
-            const translatedFileInput = document.getElementById('translatedFile').files[0];
+        document.getElementById('compareBtn').addEventListener('click', async () => {
+            const file1 = document.getElementById('file1').files[0];
+            const file2 = document.getElementById('file2').files[0];
 
-            if (!apiKey) {
-                alert('Please enter your OpenAI API key.');
-                return;
-            }
-
-            if (!originalFileInput || !translatedFileInput) {
-                alert('Please upload both the original and translated files.');
+            if (!file1 || !file2) {
+                alert('Please upload both files!');
                 return;
             }
 
             try {
-                const originalText = await extractTextFromDocx(originalFileInput);
-                const translatedText = await extractTextFromDocx(translatedFileInput);
-
-                const originalParagraphs = splitIntoParagraphs(originalText);
-                const translatedParagraphs = splitIntoParagraphs(translatedText);
-
-                if (originalParagraphs.length !== translatedParagraphs.length) {
-                    alert('The number of paragraphs in the original and translated files do not match.');
-                    return;
-                }
-
-                const results = await compareParagraphs(originalParagraphs, translatedParagraphs, apiKey);
-                displayComparison(results);
+                const [text1, text2] = await Promise.all([readDocx(file1), readDocx(file2)]);
+                const differences = await compareTexts(text1, text2);
+                displayResult(differences);
             } catch (error) {
-                console.error('Error processing files:', error);
+                console.error('Error comparing files:', error);
                 alert('An error occurred while processing the files.');
             }
         });
 
-        async function extractTextFromDocx(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = async function (e) {
-                    const arrayBuffer = e.target.result;
-                    try {
-                        const zip = new JSZip();
-                        const content = await zip.loadAsync(arrayBuffer);
-                        const doc = new window.docxtemplater().loadZip(content);
-                        resolve(doc.getFullText());
-                    } catch (err) {
-                        reject(err);
-                    }
-                };
-                reader.readAsArrayBuffer(file);
+        async function readDocx(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const zip = new PizZip(arrayBuffer);
+            const doc = new window.docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+            return doc.getFullText();
+        }
+
+        async function compareTexts(text1, text2) {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer YOUR_OPENAI_API_KEY`,
+                },
+                body: JSON.stringify({
+                    model: 'gpt-4',
+                    messages: [
+                        { role: 'system', content: 'You are a tool for comparing text differences.' },
+                        { role: 'user', content: `Compare these two texts and highlight differences:\nText 1:\n${text1}\n\nText 2:\n${text2}` }
+                    ]
+                })
             });
-        }
 
-        function splitIntoParagraphs(text) {
-            return text.split(/\n+/).map(p => p.trim()).filter(p => p.length > 0);
-        }
-
-        async function compareParagraphs(originalParagraphs, translatedParagraphs, apiKey) {
-            const results = [];
-            for (let i = 0; i < originalParagraphs.length; i++) {
-                const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`
-                    },
-                    body: JSON.stringify({
-                        model: "gpt-4",
-                        messages: [
-                            { role: "system", content: "You are a helpful assistant for comparing translations." },
-                            {
-                                role: "user",
-                                content: `Compare the following original paragraph and its translation. Indicate if the translation is correct or has issues:\n\nOriginal:\n${originalParagraphs[i]}\n\nTranslation:\n${translatedParagraphs[i]}`
-                            }
-                        ]
-                    })
-                });
-
-                const data = await response.json();
-                const feedback = data.choices[0].message.content;
-
-                results.push({
-                    original: originalParagraphs[i],
-                    translated: translatedParagraphs[i],
-                    feedback: feedback,
-                    hasIssues: feedback.toLowerCase().includes('issue') || feedback.toLowerCase().includes('problem'),
-                });
+            const data = await response.json();
+            if (data.error) {
+                throw new Error(data.error.message);
             }
-            return results;
+
+            return data.choices[0].message.content;
         }
 
-        function displayComparison(results) {
-            const output = document.getElementById('output');
-            output.innerHTML = '';
-
-            results.forEach((result) => {
-                const container = document.createElement('div');
-                container.className = result.hasIssues ? 'error-paragraph' : 'valid-paragraph';
-
-                const originalPara = document.createElement('p');
-                originalPara.textContent = `Original: ${result.original}`;
-
-                const translatedPara = document.createElement('p');
-                translatedPara.textContent = `Translated: ${result.translated}`;
-
-                const feedbackPara = document.createElement('p');
-                feedbackPara.textContent = `Feedback: ${result.feedback}`;
-
-                container.appendChild(originalPara);
-                container.appendChild(translatedPara);
-                container.appendChild(feedbackPara);
-
-                output.appendChild(container);
-            });
+        function displayResult(differences) {
+            const outputDiv = document.getElementById('output');
+            outputDiv.innerHTML = differences.replace(/\*\*(.*?)\*\*/g, '<span class="difference">$1</span>');
         }
     </script>
 </body>
