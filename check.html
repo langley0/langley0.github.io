@@ -27,6 +27,9 @@
         .highlight {
             background-color: #ffff99;
         }
+        .success {
+            background-color: #ccffcc;
+        }
         .paragraph {
             margin-bottom: 20px;
         }
@@ -135,8 +138,6 @@
         }
 
         async function compareTextsByParagraph(text1, text2, apiKey) {
-            console.log(text1);
-
             const paragraphs1 = text1.split(/\n+/);
             const paragraphs2 = text2.split(/\n+/);
 
@@ -151,10 +152,10 @@
                         'Authorization': `Bearer ${apiKey}`,
                     },
                     body: JSON.stringify({
-                        model: 'gpt-4o',
+                        model: 'gpt-4-0613',
                         messages: [
-                            { role: 'system', content: 'You are a tool for comparing text differences' },
-                            { role: 'user', content: `Compare two paragraphs and check translation issues. If there are issues, say "YES" of if not, say "NO" :\nOriginal:\n${p1}\n\nTranslated:\n${p2}` }
+                            { role: 'system', content: 'You are a tool for comparing text differences.' },
+                            { role: 'user', content: `Are these paragraphs equivalent in meaning? Respond with Yes or No.\nOriginal:\n${p1}\n\nTranslated:\n${p2}` }
                         ]
                     })
                 });
@@ -164,13 +165,20 @@
                     throw new Error(data.error.message);
                 }
 
-                const result = data.choices[0].message.content;
+                const result = data.choices[0].message.content.trim();
                 const originalPara = document.querySelector(`#originalPanel .paragraph[data-index="${i}"]`);
                 const translatedPara = document.querySelector(`#translatedPanel .paragraph[data-index="${i}"]`);
 
-                if (result.includes('**')) {
+                if (result === 'No') {
                     if (originalPara) originalPara.classList.add('highlight');
                     if (translatedPara) translatedPara.classList.add('highlight');
+                } else if (result === 'Yes') {
+                    if (originalPara) originalPara.classList.add('success');
+                    if (translatedPara) translatedPara.classList.add('success');
+                }
+
+                if (translatedPara) {
+                    translatedPara.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
             }
         }
