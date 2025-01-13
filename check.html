@@ -106,13 +106,19 @@
 
         async function readDocx(file) {
             const arrayBuffer = await file.arrayBuffer();
-            const result = await mammoth.extractRawText({ arrayBuffer });
+            const result = await mammoth.extractRawText({
+                arrayBuffer,
+                includeDefaultStyleMap: true,
+                styleMap: [
+                    "table => p:fresh-table"
+                ]
+            });
             return result.value;
         }
 
         function displayTexts(text1, text2) {
-            const paragraphs1 = text1.split(/\n+/);
-            const paragraphs2 = text2.split(/\n+/);
+            const paragraphs1 = mergeTablesIntoParagraphs(text1.split(/\n+/));
+            const paragraphs2 = mergeTablesIntoParagraphs(text2.split(/\n+/));
 
             originalPanel.innerHTML = '<h3>Original Text</h3>';
             translatedPanel.innerHTML = '<h3>Translated Text</h3>';
@@ -128,6 +134,29 @@
             syncScroll(originalPanel, translatedPanel);
         }
 
+        function mergeTablesIntoParagraphs(paragraphs) {
+            const merged = [];
+            let buffer = '';
+
+            paragraphs.forEach(paragraph => {
+                if (paragraph.includes('fresh-table')) {
+                    buffer += paragraph + '\n';
+                } else {
+                    if (buffer) {
+                        merged.push(buffer.trim());
+                        buffer = '';
+                    }
+                    merged.push(paragraph);
+                }
+            });
+
+            if (buffer) {
+                merged.push(buffer.trim());
+            }
+
+            return merged;
+        }
+
         function syncScroll(panel1, panel2) {
             panel1.addEventListener('scroll', () => {
                 panel2.scrollTop = panel1.scrollTop;
@@ -138,8 +167,8 @@
         }
 
         async function compareTextsByParagraph(text1, text2, apiKey) {
-            const paragraphs1 = text1.split(/\n+/);
-            const paragraphs2 = text2.split(/\n+/);
+            const paragraphs1 = mergeTablesIntoParagraphs(text1.split(/\n+/));
+            const paragraphs2 = mergeTablesIntoParagraphs(text2.split(/\n+/));
 
             for (let i = 0; i < Math.max(paragraphs1.length, paragraphs2.length); i++) {
                 const p1 = paragraphs1[i] || '';
