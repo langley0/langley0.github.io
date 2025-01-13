@@ -16,10 +16,7 @@
         }
         .panel {
             flex: 1;
-            border: 1px solid #ccc;
             padding: 10px;
-            overflow-y: auto;
-            height: 400px;
         }
         .difference {
             background-color: #ffcccc;
@@ -61,8 +58,8 @@
     </div>
 
     <div id="output">
-        <div id="originalPanel" class="panel"><h3>Original Text</h3></div>
-        <div id="translatedPanel" class="panel"><h3>Translated Text</h3></div>
+        <div id="originalPanel" class="panel"></div>
+        <div id="translatedPanel" class="panel"></div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
@@ -92,7 +89,7 @@
             try {
                 const [html1, html2] = await Promise.all([readDocx(file1), readDocx(file2)]);
                 displayHtml(html1, html2);
-                await compareHtmlContent(html1, html2, apiKey);
+                await compareHtmlContentBySections(html1, html2, apiKey);
             } catch (error) {
                 console.error('Error comparing files:', error);
                 alert('An error occurred while processing the files.');
@@ -110,47 +107,68 @@
         function displayHtml(html1, html2) {
             originalPanel.innerHTML = `<h3>Original Text</h3>${html1}`;
             translatedPanel.innerHTML = `<h3>Translated Text</h3>${html2}`;
-            syncScroll(originalPanel, translatedPanel);
         }
 
-        function syncScroll(panel1, panel2) {
-            panel1.addEventListener('scroll', () => {
-                panel2.scrollTop = panel1.scrollTop;
-            });
-            panel2.addEventListener('scroll', () => {
-                panel1.scrollTop = panel2.scrollTop;
-            });
+        async function compareHtmlContentBySections(html1, html2, apiKey) {
+            const sections1 = splitHtmlIntoSections(html1);
+            const sections2 = splitHtmlIntoSections(html2);
+
+            for (let i = 0; i < Math.max(sections1.length, sections2.length); i++) {
+                const section1 = sections1[i] || '';
+                const section2 = sections2[i] || '';
+
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`,
+                    },
+                    body: JSON.stringify({
+                        model: 'gpt-4-0613',
+                        messages: [
+                            { role: 'system', content: 'You are a tool for comparing HTML content differences.' },
+                            { role: 'user', content: `Compare the following HTML sections and identify if they are equivalent in meaning. Respond with Yes or No.\n\nOriginal Section:\n${section1}\n\nTranslated Section:\n${section2}` }
+                        ]
+                    })
+                });
+
+                const data = await response.json();
+                if (data.error) {
+                    throw new Error(data.error.message);
+                }
+
+                const result = data.choices[0].message.content.trim();
+                if (result === 'No') {
+                    markSectionDifference(section1, section2, 'highlight');
+                } else if (result === 'Yes') {
+                    markSectionDifference(section1, section2, 'success');
+                }
+            }
         }
 
-        async function compareHtmlContent(html1, html2, apiKey) {
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`,
-                },
-                body: JSON.stringify({
-                    model: 'gpt-4o',
-                    messages: [
-                        { role: 'system', content: 'You are a tool for comparing HTML content differences.' },
-                        { role: 'user', content: `Compare the following HTML content and identify if they are equivalent in meaning. Respond with Yes or No.\n\nOriginal HTML:\n${html1}\n\nTranslated HTML:\n${html2}` }
-                    ]
-                })
+        function splitHtmlIntoSections(html) {
+            const container = document.createElement('div');
+            container.innerHTML = html;
+
+            const sections = [];
+            container.querySelectorAll('p, table').forEach((element) => {
+                sections.push(element.outerHTML);
             });
 
-            const data = await response.json();
-            if (data.error) {
-                throw new Error(data.error.message);
-            }
+            return sections;
+        }
 
-            const result = data.choices[0].message.content.trim();
-            if (result === 'No') {
-                originalPanel.classList.add('highlight');
-                translatedPanel.classList.add('highlight');
-            } else if (result === 'Yes') {
-                originalPanel.classList.add('success');
-                translatedPanel.classList.add('success');
-            }
+        function markSectionDifference(section1, section2, className) {
+            const originalSection = document.createElement('div');
+            originalSection.className = className;
+            originalSection.innerHTML = section1;
+
+            const translatedSection = document.createElement('div');
+            translatedSection.className = className;
+            translatedSection.innerHTML = section2;
+
+            originalPanel.appendChild(originalSection);
+            translatedPanel.appendChild(translatedSection);
         }
     </script>
 </body>
