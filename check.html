@@ -65,8 +65,7 @@
         <div id="translatedPanel" class="panel"><h3>Translated Text</h3></div>
     </div>
 
-    <script src="pizzip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.29.0/docxtemplater.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
     <script>
         const compareBtn = document.getElementById('compareBtn');
         const spinner = document.getElementById('spinner');
@@ -104,9 +103,8 @@
 
         async function readDocx(file) {
             const arrayBuffer = await file.arrayBuffer();
-            const zip = new PizZip(arrayBuffer);
-            const doc = new window.docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
-            return doc.getFullText();
+            const result = await mammoth.extractRawText({ arrayBuffer });
+            return result.value;
         }
 
         function displayTexts(text1, text2) {
@@ -137,11 +135,10 @@
         }
 
         async function compareTextsByParagraph(text1, text2, apiKey) {
+            console.log(text1);
+
             const paragraphs1 = text1.split(/\n+/);
             const paragraphs2 = text2.split(/\n+/);
-
-            console.log(text1);
-            console.log(paragraphs1);
 
             for (let i = 0; i < Math.max(paragraphs1.length, paragraphs2.length); i++) {
                 const p1 = paragraphs1[i] || '';
