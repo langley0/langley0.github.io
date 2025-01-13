@@ -35,18 +35,19 @@
     </div>
     <div>
         <label for="originalFile">Original File:</label>
-        <input type="file" id="originalFile" accept=".docx">
+        <input type="file" id="originalFile" accept=".doc,.docx">
     </div>
     <div>
         <label for="translatedFile">Translated File:</label>
-        <input type="file" id="translatedFile" accept=".docx">
+        <input type="file" id="translatedFile" accept=".doc,.docx">
     </div>
     <button id="compareBtn">Compare Files</button>
     <div id="output">
         <p>Comparison results will appear here...</p>
     </div>
 
-    <script src="mammoth.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.21.0/docxtemplater.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
         document.getElementById('compareBtn').addEventListener('click', async function () {
             const apiKey = document.getElementById('apiKey').value;
@@ -81,11 +82,17 @@
         async function extractTextFromDocx(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
-                reader.onload = function (e) {
+                reader.onload = async function (e) {
                     const arrayBuffer = e.target.result;
-                    mammoth.extractRawText({ arrayBuffer: arrayBuffer })
-                        .then(result => resolve(result.value))
-                        .catch(err => reject(err));
+                    try {
+                        const zip = new JSZip();
+                        const content = await zip.loadAsync(arrayBuffer);
+                        const doc = new window.docxtemplater().loadZip(content);
+                        const text = doc.getFullText();
+                        resolve(text);
+                    } catch (err) {
+                        reject(err);
+                    }
                 };
                 reader.readAsArrayBuffer(file);
             });
