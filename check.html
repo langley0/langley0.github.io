@@ -140,6 +140,9 @@
             const paragraphs1 = text1.split(/\n+/);
             const paragraphs2 = text2.split(/\n+/);
 
+            console.log(text1);
+            console.log(paragraphs1);
+
             for (let i = 0; i < Math.max(paragraphs1.length, paragraphs2.length); i++) {
                 const p1 = paragraphs1[i] || '';
                 const p2 = paragraphs2[i] || '';
